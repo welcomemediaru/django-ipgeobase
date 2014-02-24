@@ -1,12 +1,24 @@
 #encoding:utf8
-from cStringIO import StringIO
+
+from __future__ import unicode_literals
+
+try:
+    from cStringIO import StringIO as BytesIO
+except ImportError:
+    from io import BytesIO
+
 from django.core.mail import mail_admins
 from django.core.management.base import NoArgsCommand, CommandError
 from django.db import connection, transaction
-from django_ipgeobase.conf import IPGEOBASE_SOURCE_URL, IPGEOBASE_CODING, \
-    IPGEOBASE_SEND_MESSAGE_FOR_ERRORS
-from urllib import urlopen
+from django_ipgeobase.conf import IPGEOBASE_SOURCE_URL, IPGEOBASE_CODING, IPGEOBASE_SEND_MESSAGE_FOR_ERRORS
+
+try:
+    from urllib import urlopen
+except ImportError:
+    from urllib.request import urlopen
+
 from zipfile import ZipFile
+
 
 DELETE_SQL = "DELETE FROM django_ipgeobase_ipgeobase"
 
@@ -21,19 +33,18 @@ send_message = IPGEOBASE_SEND_MESSAGE_FOR_ERRORS
 
 
 class Command(NoArgsCommand):
-
     def handle(self, *args, **options):
-        print "Download zip-archive..."
+        print("Download zip-archive...")
         f = urlopen(IPGEOBASE_SOURCE_URL)
-        buffer = StringIO(f.read())
+        buffer = BytesIO(f.read())
         f.close()
-        print "Unpacking..."
+        print("Unpacking...")
         zip_file = ZipFile(buffer)
         cities_file_read = _read_file(zip_file, 'cities.txt')
         cidr_optim_file_read = _read_file(zip_file, 'cidr_optim.txt')
         zip_file.close()
         buffer.close()
-        print "Start updating..."
+        print("Start updating...")
         list_cities = cities_file_read.decode(IPGEOBASE_CODING).split('\n')
         list_cidr_optim = \
             cidr_optim_file_read.decode(IPGEOBASE_CODING).split('\n')
@@ -43,16 +54,16 @@ class Command(NoArgsCommand):
         transaction.enter_transaction_management()
         try:
             transaction.managed(True)
-            print "Delete old rows in table ipgeobase..."
+            print("Delete old rows in table ipgeobase...")
             cursor.execute(DELETE_SQL)
-            print "Write new data..."
+            print ("Write new data...")
             cursor.executemany(INSERT_SQL, [l for l in lines if l])
             transaction.commit()
-        except Exception, e:
+        except Exception as e:
             message = "The data not updated:", e
             if send_message:
                 mail_admins(subject=ERROR_SUBJECT, message=message)
-            raise CommandError, message
+            raise CommandError(message)
         finally:
             transaction.rollback()
             transaction.leave_transaction_management()
@@ -65,7 +76,7 @@ def _read_file(zip_file, filename):
         message = "File %s in archive does not found" % filename
         if send_message:
             mail_admins(subject=ERROR_SUBJECT, message=message)
-        raise CommandError, message
+        raise CommandError(message)
     return file_read
 
 def _get_cidr_optim_with_cities_lines(list_cidr_optim, list_cities):
