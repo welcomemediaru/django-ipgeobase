@@ -11,5 +11,5 @@ class IPGeoBaseManager(models.Manager):
         try:
             number = struct.unpack('!L', socket.inet_aton(ip))[0]
         except socket.error:
-            return super(IPGeoBaseManager, self).get_queryset().none()
+            return super(IPGeoBaseManager, self).get_query_set().none()
         return super(IPGeoBaseManager, self).get_query_set().filter(start_ip__lte=number, end_ip__gte=number).order_by('end_ip', '-start_ip')
